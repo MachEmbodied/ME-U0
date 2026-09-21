@@ -2,14 +2,17 @@
   <img src="assets/li-auto.svg" alt="Li Auto" width="220">
 </p>
 
-<h1 align="center">ME-U0</h1>
+<h1 align="center">
+  <img src="assets/Logo.svg" alt="ME-U0" width="320">
+</h1>
 
 <p align="center">
   MachEmbodied-U0: Unified Understanding and Generation Model for Embodied Intelligence
 </p>
 
 <p align="center">
-  <a href="assets/ME_U0.pdf">📄 Technical Report</a>
+  <a href="assets/ME_U0.pdf">📄 Technical Report</a> &nbsp;|&nbsp;
+  <a href="https://machembodied.com/ME-U/ME-U0.html">🌐 Project Page</a>
 </p>
 
 ---
