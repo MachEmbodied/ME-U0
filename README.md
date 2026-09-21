@@ -11,7 +11,7 @@
 </p>
 
 <p align="center">
-  <a href="https://raw.githubusercontent.com/MachEmbodied/ME-U0/main/assets/ME_U0.pdf">📄 Technical Report</a> &nbsp;|&nbsp;
+  <a href="assets/ME_U0.pdf">📄 Technical Report</a> &nbsp;|&nbsp;
   <a href="https://machembodied.com/ME-U/ME-U0.html">🌐 Project Page</a>
 </p>
 
