@@ -1,5 +1,5 @@
 <p align="left">
-  <img src="assets/li-auto.svg" alt="Li Auto" width="120">
+  <img src="assets/li-auto.svg" alt="Li Auto" width="150">
 </p>
 
 <h1 align="center">
