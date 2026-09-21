@@ -1,5 +1,5 @@
-<p align="center">
-  <img src="assets/li-auto.svg" alt="Li Auto" width="220">
+<p align="left">
+  <img src="assets/li-auto.svg" alt="Li Auto" width="120">
 </p>
 
 <h1 align="center">
@@ -58,6 +58,11 @@ LIBERO uses native delta-EEF actions and the dataset's min/max statistics. RoboD
 
 ### Post-training
 
+Run from the repository root after setting the model and dataset paths above.
+`ME_U0_PRETRAINED_PTH` loads model weights; `--resume latest` restores an existing training run, including optimizer state.
+
+**GPU training (one node, eight GPUs):**
+
 ```bash
 bash scripts/ME_U0/run_multinode.sh 1 \
   --nproc-per-node 8 \
@@ -66,14 +71,78 @@ bash scripts/ME_U0/run_multinode.sh 1 \
   --config leap/configs/experiments/libero_posttraining.yaml
 ```
 
-For RoboDojo, select `robodojo_sim_posttraining.yaml`. On PPU clusters, use `scripts/ME_U0/train_ppu.sh`; run it with `--help` for launch options.
+**PPU training:** install the vendor runtime first, then use:
+
+```bash
+MASTER_PORT=29900 bash scripts/ME_U0/train_ppu.sh \
+  --nnodes 1 --nproc-per-node 16 \
+  --shared-repo "$PWD" --exp-name libero_posttraining \
+  --work-root "$LEAP_WORK_ROOT" \
+  --train-config leap/configs/experiments/libero_posttraining.yaml
+```
+
+For RoboDojo, replace the config with `robodojo_sim_posttraining.yaml` and choose a separate experiment name. For multi-node training, launch on every node with the same shared work root, `MASTER_ADDR`, `MASTER_PORT`, and node count, and a unique `NODE_RANK` (`0` to `N-1`).
 
 ### Evaluation
 
-Prepare the corresponding simulator environment and assets before evaluation. Evaluation entry points:
+The policy and simulator use separate environments. `scripts/install.sh` installs the policy dependencies; prepare the simulator environments and assets separately:
 
-- LIBERO: `scripts/ME_U0/eval_libero.sh`
-- LIBERO-Plus: `scripts/ME_U0/eval_libero_plus.sh` or `eval_libero_plus_distributed.sh`
-- RoboDojo: `scripts/ME_U0/eval_robodojo_distributed.sh`
+```bash
+export LIBERO_UNIFIED_ROOT=/path/to/unified_eval
+export ROBODOJO_UNIFIED_ROOT=/path/to/unified_eval
+```
 
-Pass the matching `--config` and `--checkpoint`; use `--help` for GPU selection, task suites, and output paths.
+The default layout is:
+
+```text
+unified_eval/
+├── conda/libero_py38/bin/python
+├── source/LIBERO/
+├── source/LIBERO-plus/
+├── source/RoboDojo-25691aa78fb3/
+└── scripts/run_robodojo_env.sh
+```
+
+LIBERO and LIBERO-Plus share the simulator Python environment. For another layout, set `CONDA_LIBERO_PY` and `LIBERO_HOME` (the corresponding LIBERO or LIBERO-Plus source tree); for RoboDojo, set `ROBODOJO_ROOT`. Configure each simulator's asset paths for your installation.
+
+**LIBERO:**
+
+```bash
+bash scripts/ME_U0/eval_libero.sh \
+  --config leap/configs/experiments/libero_posttraining.yaml \
+  --checkpoint /path/to/libero/checkpoints/step_25000 \
+  --output-dir /path/to/eval_libero \
+  --task-suite all --server-gpu 0,1,2,3 --sim-gpus 0,1,2,3 \
+  --image-size 256 --num-inference-steps 12 --action-chunk-size 24
+```
+
+**LIBERO-Plus:** evaluate the same LIBERO-trained checkpoint with LIBERO normalization statistics.
+
+```bash
+ME_U0_LIBERO_PLUS_NORMALIZER_SOURCE=libero \
+bash scripts/ME_U0/eval_libero_plus_distributed.sh \
+  --config leap/configs/experiments/libero_posttraining.yaml \
+  --checkpoint /path/to/libero/checkpoints/step_25000 \
+  --output-root /path/to/eval_libero_plus \
+  --task-suite all --libero-plus-shards-per-suite 4 \
+  --num-nodes 1 --node-rank 0 \
+  --server-gpus 0,1,2,3 --sim-gpus 0,1,2,3 \
+  --image-size 256 --num-inference-steps 12 --action-chunk-size 24
+```
+
+**RoboDojo:**
+
+```bash
+bash scripts/ME_U0/eval_robodojo_distributed.sh \
+  --config leap/configs/experiments/robodojo_sim_posttraining.yaml \
+  --checkpoint /path/to/robodojo/checkpoints/step_30000 \
+  --output-root /path/to/eval_robodojo \
+  --task-suite all --seeds 0,1,2 --eval-num native \
+  --num-nodes 1 --node-rank 0 \
+  --server-gpus 0,1,2,3 --sim-gpus 0,1,2,3 \
+  --num-inference-steps 12 --action-chunk-size 36
+```
+
+For distributed evaluation, run on each machine with the same `--num-nodes` and shared `--output-root`, and a unique `--node-rank`. Use a separate output directory for each experiment.
+
+Camera layout and resize sizes come from the training config. `--action-chunk-size` controls how many predicted actions are executed before replanning; it does not change the trained action horizon. Run any entry point with `--help` for additional options.
