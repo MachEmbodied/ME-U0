@@ -58,9 +58,6 @@ LIBERO uses native delta-EEF actions and the dataset's min/max statistics. RoboD
 
 ### Post-training
 
-Run from the repository root after setting the model and dataset paths above.
-`ME_U0_PRETRAINED_PTH` loads model weights; `--resume latest` restores an existing training run, including optimizer state.
-
 **GPU training (one node, eight GPUs):**
 
 ```bash
