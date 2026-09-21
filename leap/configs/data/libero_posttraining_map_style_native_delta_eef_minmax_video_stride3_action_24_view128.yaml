@@ -1,0 +1,99 @@
+# Native LIBERO actions: delta EEF xyz/axis-angle + unchanged open-gripper [0,1].
+# Each suite uses its own v2.1 episodes_stats.jsonl min/max, without recomputation.
+# Source 20 Hz: RGB offsets [0,3,...,24] (6.67 Hz), action offsets [0,...,23] (20 Hz).
+data:
+  batch_size: 6
+  num_workers: 4
+  prefetch_factor: 2
+  dataloader_timeout_seconds: 1800
+  collate_fn:
+    _target_: leap.data.world_unified.collator.WorldUnifiedCollator
+    return_dict: true
+  train:
+    _target_: leap.data.me_u0.map_style_robot_video_dataset.MapStyleRobotMixtureDataset
+    datasets:
+    - &libero_source
+      _target_: leap.data.me_u0.map_style_robot_video_dataset.MapStyleLerobotV2VideoDataset
+      dataset_name: libero_goal
+      logical_domain_id: 0
+      num_cameras: 2
+      metadata_enabled: true
+      dataset_dirs:
+      - /path/to/libero/libero_goal
+      norm_stats_source: lerobot_v2_minmax
+      stats_mode: require
+      decode_resize: [128, 128]
+      shape_meta: &libero_native_shape
+        images:
+        - {key: observation.images.image, raw_shape: [3, 256, 256], shape: [3, 128, 128]}
+        - {key: observation.images.wrist_image, raw_shape: [3, 256, 256], shape: [3, 128, 128]}
+        action:
+        - {key: delta_eef, lerobot_key: action, select_indices: [0, 1, 2, 3, 4, 5], raw_shape: 6, shape: 6, native_delta: true}
+        - {key: gripper, lerobot_key: action, select_indices: [6], raw_shape: 1, shape: 1}
+        state:
+        - {key: eef_pose, lerobot_key: observation.state, select_indices: [0, 1, 2, 3, 4, 5], raw_shape: 6, shape: 6}
+        # Both finger qpos entries are real state, not padding or binary labels.
+        - {key: finger_qpos, lerobot_key: observation.state, select_indices: [6, 7], raw_shape: 2, shape: 2}
+      num_frames: 25
+      action_video_freq_ratio: 3
+      video_read_stride: 3
+      action_start_offset: 0
+      minimum_future_offset: 24
+      global_sample_stride: 1
+      video_size: [128, 256]
+      concat_multi_camera: horizontal
+      is_training_set: true
+      val_set_proportion: 0.0
+      seed: ${training.seed}
+      decode_workers: 4
+      processor:
+        _target_: leap.data.me_u0.processors.me_u0_processor.MEU0Processor
+        shape_meta: *libero_native_shape
+        num_obs_steps: 9
+        num_output_cameras: 2
+        action_output_dim: 26
+        proprio_output_dim: 26
+        delta_action_dim_mask: null
+        action_state_transforms: []
+        use_stepwise_action_norm: false
+        norm_default_mode: min/max
+        # Constant [-1,1] gives scale=1, offset=0: retain raw gripper values.
+        norm_exception_mode:
+          action: {gripper: '-1/1'}
+        action_state_merger:
+          _target_: leap.data.me_u0.transforms.action_state_merger.ConcatLeftAlign
+          action_target_dim: 26
+          state_target_dim: 26
+        train_transforms:
+        - _target_: leap.data.me_u0.transforms.image.ToTensor
+        - _target_: torchvision.transforms.Resize
+          size: [128, 128]
+        val_transforms:
+        - _target_: leap.data.me_u0.transforms.image.ToTensor
+        - _target_: torchvision.transforms.Resize
+          size: [128, 128]
+      main_image_key: observation.images.image
+      main_image_size: [224, 224]
+      corrupt_sample_retries: 0
+    - <<: *libero_source
+      dataset_name: libero_object
+      dataset_dirs:
+      - /path/to/libero/libero_object
+    - <<: *libero_source
+      dataset_name: libero_spatial
+      dataset_dirs:
+      - /path/to/libero/libero_spatial
+    - <<: *libero_source
+      dataset_name: libero_10
+      dataset_dirs:
+      - /path/to/libero/libero_10
+    skip_corrupt_data: true
+    corrupt_sample_retries: 16
+  batch_sampler:
+    _target_: leap.data.me_u0.map_style_robot_video_dataset.MapStyleGlobalBatchSampler
+    batch_size: ${data.batch_size}
+    drop_last: true
+    seed: ${training.seed}
+    replacement: false
+    round_up_to_global_batch: false
+    source_weights: null

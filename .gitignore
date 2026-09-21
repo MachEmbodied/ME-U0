@@ -1,0 +1,48 @@
+# Python
+__pycache__/
+*.py[cod]
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+*.whl
+
+# Auto-generated version file (setuptools-scm)
+leap/_version.py
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# IDE
+.idea/
+.claude/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Training artifacts
+work_dirs/
+wandb/
+runs/
+outputs/
+checkpoints/
+*.ckpt
+*.pt
+*.pth
+*.safetensors
+
+# Logs
+*.log
+tensorboard/
+videos/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Misc
+.env
