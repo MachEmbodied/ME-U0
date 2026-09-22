@@ -138,3 +138,11 @@ bash scripts/ME_U0/eval_robodojo_distributed.sh \
 For distributed evaluation, run on each machine with the same `--num-nodes` and shared `--output-root`, and a unique `--node-rank`. Use a separate output directory for each experiment.
 
 Camera layout and resize sizes come from the training config. `--action-chunk-size` controls how many predicted actions are executed before replanning; it does not change the trained action horizon. Run any entry point with `--help` for additional options.
+
+## License
+
+This repository is released under the Apache License 2.0. See [LICENSE](LICENSE).
+
+### Third-Party Code
+
+`leap/models/ME_U0/lance_src/` is adapted from [Lance](https://github.com/bytedance/Lance) (Copyright 2025 ByteDance Ltd. and/or its affiliates), licensed under the Apache License 2.0. 

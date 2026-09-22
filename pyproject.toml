@@ -3,6 +3,8 @@ name = "leap"
 dynamic = ["version"]
 requires-python = ">=3.10"
 description = "ME_U0 map-style post-training and evaluation for LIBERO and RoboDojo"
+license = "Apache-2.0"
+license-files = ["LICENSE"]
 maintainers = [
     {name = "Wenfu Wang"},
 ]
@@ -40,7 +42,8 @@ diffusion = ["diffusers>=0.28"]
 dev = ["pytest", "ruff"]
 
 [build-system]
-requires = ["setuptools>=68.0", "setuptools-scm>=8"]
+# PEP 639 (SPDX `license` string + `[project].license-files`) requires setuptools>=77.
+requires = ["setuptools>=77.0", "setuptools-scm>=8"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools.packages.find]
