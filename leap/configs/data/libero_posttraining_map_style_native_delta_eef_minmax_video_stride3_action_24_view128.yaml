@@ -1,6 +1,6 @@
 # Native LIBERO actions: delta EEF xyz/axis-angle + unchanged open-gripper [0,1].
 # Each suite uses its own v2.1 episodes_stats.jsonl min/max, without recomputation.
-# Source 20 Hz: RGB offsets [0,3,...,24] (6.67 Hz), action offsets [0,...,23] (20 Hz).
+# Source 20 Hz: RGB offsets [0,3,6,9,12] (6.67 Hz), action offsets [0,...,11] (20 Hz).
 data:
   batch_size: 6
   num_workers: 4
@@ -34,11 +34,11 @@ data:
         - {key: eef_pose, lerobot_key: observation.state, select_indices: [0, 1, 2, 3, 4, 5], raw_shape: 6, shape: 6}
         # Both finger qpos entries are real state, not padding or binary labels.
         - {key: finger_qpos, lerobot_key: observation.state, select_indices: [6, 7], raw_shape: 2, shape: 2}
-      num_frames: 25
+      num_frames: 13
       action_video_freq_ratio: 3
       video_read_stride: 3
       action_start_offset: 0
-      minimum_future_offset: 24
+      minimum_future_offset: 12
       global_sample_stride: 1
       video_size: [128, 256]
       concat_multi_camera: horizontal
@@ -49,7 +49,7 @@ data:
       processor:
         _target_: leap.data.me_u0.processors.me_u0_processor.MEU0Processor
         shape_meta: *libero_native_shape
-        num_obs_steps: 9
+        num_obs_steps: 5
         num_output_cameras: 2
         action_output_dim: 26
         proprio_output_dim: 26

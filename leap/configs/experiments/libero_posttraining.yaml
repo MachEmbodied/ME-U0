@@ -1,7 +1,7 @@
 # Post-train the 120M H12 checkpoint on native LIBERO delta-EEF data.
 # Keep the 26/26 model heads and group-substep MRoPE. The two real cameras
 # use a 128x256 horizontal VAE mosaic; ViT reads the main image at 224x224.
-# RGB is sampled at source offsets [0,3,...,24], yielding 9 frames.
+# RGB is sampled at source offsets [0,3,6,9,12], yielding 5 frames.
 run_id: ${oc.env:ME_U0_RUN_ID,UNSET_RUN_ID}
 work_dir: ${work_root}/${run_id}
 
@@ -26,9 +26,9 @@ model:
   freeze_understanding: false
   freeze_vit: false
   freeze_vae: true
-  action_horizon: 24
-  num_video_frames: 9
-  num_video_latent_frames: 3
+  action_horizon: 12
+  num_video_frames: 5
+  num_video_latent_frames: 2
   per_view_size: 128
   main_image_size: 224
   batch_vae_vit_encoders: true

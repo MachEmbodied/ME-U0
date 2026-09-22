@@ -49,11 +49,6 @@ export LEAP_WORK_ROOT=/path/to/work_dirs
 
 Model weights, datasets, and simulator assets are not bundled. Set the dataset paths in the corresponding YAML under `leap/configs/data/` before training.
 
-| Recipe | Configuration | Action horizon | Video stride |
-| --- | --- | ---: | ---: |
-| LIBERO | [`libero_posttraining.yaml`](leap/configs/experiments/libero_posttraining.yaml) | 24 | 3 |
-| RoboDojo | [`robodojo_sim_posttraining.yaml`](leap/configs/experiments/robodojo_sim_posttraining.yaml) | 48 | 2 |
-
 LIBERO uses native delta-EEF actions and the dataset's min/max statistics. RoboDojo uses chunk-start delta-joint actions and the included H48 q01/q99 statistics.
 
 ### Post-training
@@ -110,7 +105,7 @@ bash scripts/ME_U0/eval_libero.sh \
   --checkpoint /path/to/libero/checkpoints/step_25000 \
   --output-dir /path/to/eval_libero \
   --task-suite all --server-gpu 0,1,2,3 --sim-gpus 0,1,2,3 \
-  --image-size 256 --num-inference-steps 12 --action-chunk-size 24
+  --image-size 256 --num-inference-steps 12 --action-chunk-size 12
 ```
 
 **LIBERO-Plus:** evaluate the same LIBERO-trained checkpoint with LIBERO normalization statistics.
@@ -124,7 +119,7 @@ bash scripts/ME_U0/eval_libero_plus_distributed.sh \
   --task-suite all --libero-plus-shards-per-suite 4 \
   --num-nodes 1 --node-rank 0 \
   --server-gpus 0,1,2,3 --sim-gpus 0,1,2,3 \
-  --image-size 256 --num-inference-steps 12 --action-chunk-size 24
+  --image-size 256 --num-inference-steps 12 --action-chunk-size 12
 ```
 
 **RoboDojo:**
