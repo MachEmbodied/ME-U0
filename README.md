@@ -146,4 +146,4 @@ This repository is released under the Apache License 2.0. See [LICENSE](LICENSE)
 
 ### Third-Party Code
 
-`leap/models/ME_U0/lance_src/` is adapted from [Lance](https://github.com/bytedance/Lance) (Copyright 2025 ByteDance Ltd. and/or its affiliates), licensed under the Apache License 2.0. 
+`leap/models/ME_U0/lance_src/` is adapted from [Lance](https://github.com/bytedance/Lance) (Copyright 2025 ByteDance Ltd. and/or its affiliates), licensed under the Apache License 2.0.
