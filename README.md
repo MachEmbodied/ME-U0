@@ -32,6 +32,12 @@ The understanding expert predicts subtasks and affordances, while the generation
   <img src="assets/fig6-architecture.png" alt="ME-U0 architecture with understanding and generation experts, shared multimodal attention, and MRPE" width="100%">
 </p>
 
+## RoboDojo-Sim Benchmark
+
+<p align="center">
+  <img src="assets/robodojo-sim-results.png" alt="RoboDojo-Sim benchmark results from Table 3 of the ME-U0 technical report, with VLA and WAM groups, success rates and scores" width="100%">
+</p>
+
 ## Getting Started
 
 Install the dependencies in a compatible PyTorch accelerator environment:
