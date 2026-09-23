@@ -34,6 +34,8 @@ The understanding expert predicts subtasks and affordances, while the generation
 
 ## RoboDojo-Sim Benchmark
 
+**Table 3.** Results on RoboDojo-Sim. SR and Score are reported on a 0–100 scale; bold indicates the best result within each model group.
+
 <p align="center">
   <img src="assets/robodojo-sim-results.png" alt="RoboDojo-Sim benchmark results from Table 3 of the ME-U0 technical report, with VLA and WAM groups, success rates and scores" width="100%">
 </p>
