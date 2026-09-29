@@ -31,7 +31,6 @@ def build_instruction_text_ids(
     max_text_len: int = 512,
     system_prompt: str = WORLD_UNIFIED_T2V_SYSTEM_PROMPT,
     metadata: Metadata | None = None,
-    video_modality: str = "rgb",
 ) -> torch.Tensor:
     """Return chat-template-wrapped ``input_ids`` (1-D long tensor).
 
@@ -45,7 +44,7 @@ def build_instruction_text_ids(
     0-length split. Default 512 is effectively no-truncation for robot
     instructions (native Lance does not truncate); it is only a safety ceiling.
 
-    The shared renderer adds RGB modality and dataset action semantics.
+    The shared renderer adds the task and dataset action representation.
     """
     im_start = tokenizer.convert_tokens_to_ids("<|im_start|>")
     im_end = tokenizer.convert_tokens_to_ids("<|im_end|>")
@@ -55,11 +54,7 @@ def build_instruction_text_ids(
                          max_length=limit)["input_ids"]
 
     sys_ids = enc("system\n" + system_prompt, max_text_len)
-    instruction = render_instruction(
-        instruction,
-        metadata,
-        video_modality=video_modality,
-    )
+    instruction = render_instruction(instruction, metadata)
     usr_ids = enc("user\n" + instruction, max_text_len)
     ids = [im_start] + sys_ids + [im_end] + [im_start] + usr_ids + [im_end]
     return torch.tensor(ids, dtype=torch.long)

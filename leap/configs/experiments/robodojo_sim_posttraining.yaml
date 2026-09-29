@@ -42,7 +42,7 @@ runtime:
 
 training:
   seed: 42
-  max_steps: 60000
+  max_steps: 80000
   max_epochs: 10
   gradient_accumulation_steps: 1
   gradient_clip_max_norm: 1.0
@@ -57,7 +57,7 @@ optimizer:
 
 scheduler:
   type: cosine_with_warmup
-  warmup_steps: 1000
+  warmup_steps: 1300
   min_lr_ratio: 0.1
 
 callbacks:

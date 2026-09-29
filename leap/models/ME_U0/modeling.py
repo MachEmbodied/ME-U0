@@ -119,9 +119,11 @@ def _build_mach_embodied_unified_backbone(
     if num_new_tokens > 0:
         model.language_model.resize_token_embeddings(len(tokenizer))
 
-    state_dict = load_file(osp.join(lance_dir, "model.safetensors"), device="cpu")
-    state_dict.pop("latent_pos_embed.pos_embed", None)
-    load_msg = model.load_state_dict(state_dict, strict=False)
+    load_msg = None
+    if cfg.load_backbone_weights:
+        state_dict = load_file(osp.join(lance_dir, "model.safetensors"), device="cpu")
+        state_dict.pop("latent_pos_embed.pos_embed", None)
+        load_msg = model.load_state_dict(state_dict, strict=False)
     return model, vae_model, tokenizer, load_msg
 
 
@@ -260,14 +262,15 @@ class MachEmbodiedUnifiedModel(LeapVLABase):
         if getattr(config, "gradient_checkpointing", False):
             self.lance.language_model.model.gradient_checkpointing = True
 
-        missing = frozenset(self._load_msg.missing_keys)
-        unexpected = frozenset(self._load_msg.unexpected_keys)
-        if missing != EXPECTED_OFFICIAL_BASE_MISSING_KEYS or unexpected:
-            raise RuntimeError(
-                "Official Lance backbone checkpoint did not match the audited "
-                "construction: "
-                f"missing={sorted(missing)}, unexpected={sorted(unexpected)}"
-            )
+        if self._load_msg is not None:
+            missing = frozenset(self._load_msg.missing_keys)
+            unexpected = frozenset(self._load_msg.unexpected_keys)
+            if missing != EXPECTED_OFFICIAL_BASE_MISSING_KEYS or unexpected:
+                raise RuntimeError(
+                    "Official Lance backbone checkpoint did not match the audited "
+                    "construction: "
+                    f"missing={sorted(missing)}, unexpected={sorted(unexpected)}"
+                )
         # Replace only the original zero-initialized 16-domain embedding.
         self.domain_embed = nn.Embedding(config.num_logical_domains, hid)
         nn.init.zeros_(self.domain_embed.weight)
@@ -964,7 +967,6 @@ class MachEmbodiedUnifiedModel(LeapVLABase):
                 instructions[i],
                 max_text_len=self.config.max_text_len,
                 metadata=text_metadata[i],
-                video_modality="rgb",
             ).to(device=device)
             prepared.append(
                 _PreparedSample(
@@ -1089,50 +1091,26 @@ class MachEmbodiedUnifiedModel(LeapVLABase):
         return embedding
 
 
-    def _split_user_turn_for_image(self, text_ids: Tensor) -> Tuple[Tensor, Tensor]:
-        """Insert vision after the user header, before the task/question body.
-
-        Keep any preceding system turn intact. The shared instruction tokenizer
-        already supplies the chat delimiters; no image placeholder is added to
-        the task string. Training and both serving paths use this same split.
-        """
-
-        if text_ids.ndim != 1 or not text_ids.numel():
-            raise ValueError("image-first input requires a nonempty chat token sequence")
-        im_start = int(self.tokenizer.convert_tokens_to_ids("<|im_start|>"))
-        im_end = int(self.tokenizer.convert_tokens_to_ids("<|im_end|>"))
-        starts = torch.nonzero(text_ids == im_start, as_tuple=False).flatten()
-        if not starts.numel() or int(text_ids[-1]) != im_end:
-            raise ValueError("image-first input must end with a closed user turn")
-        user_header = torch.tensor(
-            [im_start] + self.tokenizer("user\n", add_special_tokens=False)["input_ids"],
-            device=text_ids.device, dtype=text_ids.dtype,
-        )
-        start = int(starts[-1])
-        stop = start + int(user_header.numel())
-        if stop >= text_ids.numel() or not torch.equal(text_ids[start:stop], user_header):
-            raise ValueError("image-first input must have a final user header")
-        return text_ids[:stop], text_ids[stop:]
-
     def _text_image_positions(
         self,
-        user_header_ids: Tensor,
+        coarse_prefix_ids: Tensor,
         image_ids: Tensor,
-        user_text_ids: Tensor,
-    ) -> Tuple[Tensor, Tensor, Tensor, int]:
-        """Positions for system/user header -> image -> user text and close.
+        close_ids: Tensor,
+    ) -> Tuple[Tensor, Tensor, Tensor]:
+        """Extend legacy text positions with one native Qwen image grid.
 
-        Keep the native 1x8x8 image grid in Lance's ViT temporal range (1000).
-        UND user text continue after that range.
-        GEN VAE/state/action positions are computed separately from the original
-        text length, so reordering these embeddings does not renumber them.
+        Existing instruction tokens keep the original Lance text positions.
+        Image tokens use Qwen's 1x8x8 merged grid; their temporal axis is moved
+        to the official Lance ViT range locally for this sample. The final
+        user-turn close token keeps its original position, so the image does
+        not renumber the VAE/state/action geometry.
         """
 
-        device = user_header_ids.device
-        n_prefix = int(user_header_ids.numel())
-        if user_text_ids.ndim != 1 or not user_text_ids.numel() or int(image_ids.numel()) != 66:
+        device = coarse_prefix_ids.device
+        n_prefix = int(coarse_prefix_ids.numel())
+        if tuple(close_ids.shape) != (1,) or int(image_ids.numel()) != 66:
             raise ValueError("text/image skeleton has invalid geometry")
-        skeleton = torch.cat((user_header_ids, image_ids, user_text_ids))
+        skeleton = torch.cat((coarse_prefix_ids, image_ids, close_ids))
         local, _ = self.lance.language_model.get_rope_index(
             input_ids=skeleton.unsqueeze(0),
             image_grid_thw=torch.tensor([[1, 16, 16]], device=device),
@@ -1145,10 +1123,10 @@ class MachEmbodiedUnifiedModel(LeapVLABase):
         image_stop = image_start + int(image_ids.numel())
         image_pos = local[:, 0, image_start:image_stop].clone()
         image_pos[0] += 1000 - image_pos[0, 0]
-        text_start = int(image_pos.max().item()) + 1
-        user_text_pos = self._mp_point(text_start, user_text_ids.numel(), device)
-        next_und_position = text_start + int(user_text_ids.numel())
-        return prefix_pos, image_pos, user_text_pos, next_und_position
+        close_pos = self._mp_point(n_prefix, 1, device)
+        # The fixed 224x224 image produces vision-start + 8x8 merged patches +
+        # vision-end. Keep the generation coordinates independent of this grid.
+        return prefix_pos, image_pos, close_pos
 
     def _forward_video_action(
         self,
@@ -1231,11 +1209,9 @@ class MachEmbodiedUnifiedModel(LeapVLABase):
             point_cursor = video_max + 1
             action_anchor = point_cursor + 1
 
-            # Current observation comes first inside the user turn, before the
-            # task and metadata. Preserve the preceding system prompt.
-            user_header_ids, user_text_ids = self._split_user_turn_for_image(
-                sample.text_ids.to(device=device)
-            )
+            # Place the image after the instruction, inside the same user turn.
+            coarse_prefix_ids = sample.text_ids[:-1].to(device=device)
+            close_ids = sample.text_ids[-1:].to(device=device)
             vit = (
                 batched_vit[owner]
                 if batched_vit is not None
@@ -1251,14 +1227,14 @@ class MachEmbodiedUnifiedModel(LeapVLABase):
                 vit,
                 language_model.model.embed_tokens(image_ids[-1:]),
             ))
-            prefix_pos, image_pos, user_text_pos, und_cursor = (
+            prefix_pos, image_pos, close_pos = (
                 self._text_image_positions(
-                    user_header_ids, image_ids, user_text_ids
+                    coarse_prefix_ids, image_ids, close_ids
                 )
             )
             add(
-                language_model.model.embed_tokens(user_header_ids),
-                torch.ones_like(user_header_ids, dtype=torch.bool),
+                language_model.model.embed_tokens(coarse_prefix_ids),
+                torch.ones_like(coarse_prefix_ids, dtype=torch.bool),
                 "causal", "und", prefix_pos,
             )
             add(
@@ -1267,9 +1243,9 @@ class MachEmbodiedUnifiedModel(LeapVLABase):
                 "full", "und", image_pos,
             )
             add(
-                language_model.model.embed_tokens(user_text_ids),
-                torch.ones_like(user_text_ids, dtype=torch.bool),
-                "causal", "und", user_text_pos,
+                language_model.model.embed_tokens(close_ids),
+                torch.ones_like(close_ids, dtype=torch.bool),
+                "causal", "und", close_pos,
             )
 
             # From this marker onward, generation tokens keep the original
@@ -1511,15 +1487,16 @@ class MachEmbodiedUnifiedModel(LeapVLABase):
         vit = self._encode_main_image(main_image, device).to(dtype)
         domain = self.domain_embed(torch.tensor(int(domain_id), device=device))
 
-        user_header_ids, user_text_ids = self._split_user_turn_for_image(text_ids)
+        coarse_prefix_ids = text_ids[:-1]
+        close_ids = text_ids[-1:].clone()
         image_ids = torch.cat((
             torch.tensor([self.vision_start_id], device=device),
             torch.full((vit.shape[0],), image_pad_id, device=device),
             torch.tensor([vision_end_id], device=device),
         ))
-        prefix_pos, image_pos, user_text_pos, und_cursor = (
+        prefix_pos, image_pos, close_pos = (
             self._text_image_positions(
-                user_header_ids, image_ids, user_text_ids
+                coarse_prefix_ids, image_ids, close_ids
             )
         )
         image_embedding = torch.cat((
@@ -1532,8 +1509,7 @@ class MachEmbodiedUnifiedModel(LeapVLABase):
         marker_id = torch.tensor([self.vision_start_id], device=device)
         marker_embed = lm.model.embed_tokens(marker_id).view(1, self.hidden_size)
 
-        n_header = int(user_header_ids.numel())
-        n_user_text = int(user_text_ids.numel())
+        n_text = int(coarse_prefix_ids.numel())
         n_image = int(image_ids.numel())
         n_current = h * w
         text_len = int(text_ids.numel())
@@ -1548,9 +1524,9 @@ class MachEmbodiedUnifiedModel(LeapVLABase):
         action_anchor = point_cursor + 1
 
         prefix_start = 0
-        image_start = prefix_start + n_header
-        user_text_start = image_start + n_image
-        marker_start = user_text_start + n_user_text
+        image_start = prefix_start + n_text
+        close_start = image_start + n_image
+        marker_start = close_start + 1
         current_start = marker_start + 1
         state_index = current_start + n_current
         fixed_len = state_index + 1
@@ -1561,7 +1537,7 @@ class MachEmbodiedUnifiedModel(LeapVLABase):
         total_len = action_start + action_len
         und_idx = torch.arange(0, marker_start, device=device)
         gen_idx = torch.arange(marker_start, total_len, device=device)
-        split_lens = [n_header, n_image, n_user_text]
+        split_lens = [n_text, n_image, 1]
         attn_modes = ["causal", "full", "causal"]
         split_lens.extend((1, n_current, 1))
         attn_modes.extend(("full", "full", "full"))
@@ -1570,7 +1546,7 @@ class MachEmbodiedUnifiedModel(LeapVLABase):
         pos = torch.cat((
             prefix_pos,
             image_pos,
-            user_text_pos,
+            close_pos,
             self._mp_point(text_len, 1, device),
             self._mp_grid(
                 video_base, torch.zeros(1, device=device, dtype=torch.long),
@@ -1619,9 +1595,9 @@ class MachEmbodiedUnifiedModel(LeapVLABase):
         )
         future_pos = self._latent_pos_ids(future_latents, h, w, 1, device)
         fixed = torch.cat((
-            lm.model.embed_tokens(user_header_ids),
+            lm.model.embed_tokens(coarse_prefix_ids),
             image_embedding,
-            lm.model.embed_tokens(user_text_ids),
+            lm.model.embed_tokens(close_ids),
             marker_embed,
             current_embed,
             state_embed,

@@ -55,10 +55,10 @@ class Metadata:
     """Language-visible semantics of one dataset's action target."""
 
     control_mode: str
-    action_semantics: str
+    action_representation: str
 
     def __post_init__(self) -> None:
-        for name in ("control_mode", "action_semantics"):
+        for name in ("control_mode", "action_representation"):
             value = getattr(self, name)
             if not isinstance(value, str) or not value.strip():
                 raise ValueError(f"{name} must be a non-empty string")
@@ -112,7 +112,7 @@ class Metadata:
             )
         if transformed & gripper_keys:
             raise ValueError("relative gripper targets are not supported yet")
-        gripper_suffix = "; gripper absolute" if gripper_keys else ""
+        gripper_suffix = "; gripper targets absolute" if gripper_keys else ""
 
         native_delta = {
             str(_get(entry, "key")) for entry in action_meta
@@ -130,15 +130,15 @@ class Metadata:
             if relative_joint and relative_joint != joint_keys:
                 raise ValueError("partially relative joint control is ambiguous")
             semantics = (
-                "joint delta (current state)"
+                "joint position targets relative to the current state"
                 if relative_joint
-                else "joint position absolute"
+                else "absolute joint position targets"
             )
             return cls("joint", semantics + gripper_suffix)
 
         if relative_joint:
             raise ValueError("RelativeJointTransform cannot target EEF actions")
-        semantics = "EEF pose absolute"
+        semantics = "absolute end-effector pose targets"
         return cls("end effector", semantics + gripper_suffix)
 
 
@@ -183,31 +183,20 @@ def metadata_by_dataset_from_config(config: Any) -> dict[str, Metadata]:
     return result
 
 
-def render_instruction(
-    instruction: str,
-    metadata: Optional[Metadata] = None,
-    *,
-    video_modality: str = "rgb",
-) -> str:
-    """Render the shared RGB task and action-semantics prompt."""
+def render_instruction(instruction: str, metadata: Optional[Metadata] = None) -> str:
+    """Render model text; passing no metadata preserves the old bytes."""
 
     if not isinstance(instruction, str):
         raise TypeError("instruction must be a string")
-    if video_modality != "rgb":
-        raise ValueError(f"unsupported video modality {video_modality!r}")
-    lines = [
-        f"Task: {' '.join(instruction.split())}",
-        f"Video Modality: {video_modality}",
-    ]
     if metadata is None:
-        return " ".join(lines)
+        return instruction
     if not isinstance(metadata, Metadata):
         raise TypeError("metadata must be Metadata or None")
-    lines.extend([
-        f"Control Mode: {metadata.control_mode.rstrip('.')}.",
-        f"Action Semantics: {metadata.action_semantics}",
-    ])
-    return " ".join(" ".join(field.split()) for field in lines)
+    return (
+        f"Task: {instruction.strip()}\n"
+        f"Control Mode: {metadata.control_mode}\n"
+        f"Action Representation: {metadata.action_representation}"
+    )
 
 
 __all__ = [

@@ -26,6 +26,7 @@ class MachEmbodiedUnifiedConfig(PretrainedConfig):
         self,
         *,
         checkpoint_root: str = OFFICIAL_LANCE_CHECKPOINT_ROOT,
+        load_backbone_weights: bool = True,
         lance_subdir: str = "Lance_3B_Video",
         vit_subdir: str = "Qwen2.5-VL-ViT",
         vae_filename: str = "Wan2.2_VAE.pth",
@@ -81,6 +82,7 @@ class MachEmbodiedUnifiedConfig(PretrainedConfig):
         self.main_image_size = int(main_image_size)
         self.batch_vae_vit_encoders = bool(batch_vae_vit_encoders)
 
+        self.load_backbone_weights = bool(load_backbone_weights)
         self.checkpoint_root = checkpoint_root
         self.lance_subdir = lance_subdir
         self.vit_subdir = vit_subdir

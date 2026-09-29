@@ -38,6 +38,16 @@ The understanding expert predicts subtasks and affordances, while the generation
   <img src="assets/robodojo-sim-results.png" alt="RoboDojo-Sim benchmark results from Table 3 of the ME-U0 technical report, with VLA and WAM groups, success rates and scores" width="100%">
 </p>
 
+## Model Checkpoints
+
+- [ME-U0 Pretrained](https://huggingface.co/LiAuto-Foundation-Model/ME-U0-Pretrained): initialization weights for post-training.
+- [ME-U0 RoboDojo](https://huggingface.co/LiAuto-Foundation-Model/ME-U0-RoboDojo): post-trained policy, evaluation assets, and XPolicyLab adapter.
+
+```bash
+hf download LiAuto-Foundation-Model/ME-U0-Pretrained --local-dir /path/to/ME-U0-Pretrained
+hf download LiAuto-Foundation-Model/ME-U0-RoboDojo --local-dir /path/to/ME-U0-RoboDojo
+```
+
 ## Getting Started
 
 Install the dependencies in a compatible PyTorch accelerator environment:
@@ -46,11 +56,11 @@ Install the dependencies in a compatible PyTorch accelerator environment:
 bash scripts/install.sh
 ```
 
-Prepare the Lance backbone assets (`Lance_3B_Video/`, `Qwen2.5-VL-ViT/`, and `Wan2.2_VAE.pth`) under one directory, and a compatible ME-U0 pretraining checkpoint:
+Prepare the [Lance backbone assets](https://huggingface.co/bytedance-research/Lance) (`Lance_3B_Video/`, `Qwen2.5-VL-ViT/`, and `Wan2.2_VAE.pth`) under one directory, and use the downloaded ME-U0 pretraining checkpoint:
 
 ```bash
 export LEAP_MODEL_ROOT=/path/to/lance-assets
-export ME_U0_PRETRAINED_PTH=/path/to/checkpoints/step_N
+export ME_U0_PRETRAINED_PTH=/path/to/ME-U0-Pretrained/model.pt
 export LEAP_WORK_ROOT=/path/to/work_dirs
 ```
 
@@ -129,12 +139,13 @@ bash scripts/ME_U0/eval_libero_plus_distributed.sh \
   --image-size 256 --num-inference-steps 12 --action-chunk-size 12
 ```
 
-**RoboDojo:**
+**RoboDojo:** use the assets included with the downloaded policy.
 
 ```bash
+LEAP_MODEL_ROOT=/path/to/ME-U0-RoboDojo/assets \
 bash scripts/ME_U0/eval_robodojo_distributed.sh \
   --config leap/configs/experiments/robodojo_sim_posttraining.yaml \
-  --checkpoint /path/to/robodojo/checkpoints/step_30000 \
+  --checkpoint /path/to/ME-U0-RoboDojo/model.pt \
   --output-root /path/to/eval_robodojo \
   --task-suite all --seeds 0,1,2 --eval-num native \
   --num-nodes 1 --node-rank 0 \

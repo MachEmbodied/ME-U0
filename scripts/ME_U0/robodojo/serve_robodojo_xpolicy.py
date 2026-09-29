@@ -145,6 +145,7 @@ def main() -> None:
     codec = codecs[dataset_name]
     print(f"[RoboDojo] codec_contract={codec.contract}", flush=True)
 
+    cfg.model.load_backbone_weights = False
     model = instantiate(cfg.get("model")).to(torch.bfloat16)
     print(f"[RoboDojo] loading strict checkpoint: {args.checkpoint}", flush=True)
     load_pretrained_weights(model, args.checkpoint, strict=True)

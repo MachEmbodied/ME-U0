@@ -1,0 +1,8 @@
+policy_name: ME_U0
+protocol: ws
+host: localhost
+port: 19000
+eval_batch: true
+action_type: joint
+ws_ping_interval_s: null
+ws_ping_timeout_s: null

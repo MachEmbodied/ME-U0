@@ -211,12 +211,8 @@ class MachEmbodiedUnifiedPolicy:
         state: Optional[np.ndarray] = None,
         dataset_name: Optional[str] = None,
         action_horizon: Optional[int] = None,
-        video_modality: str = "rgb",
         **_ignored: Any,
     ) -> np.ndarray:
-        # Select the future video target; observed images are always RGB.
-        if video_modality not in ("rgb",):
-            raise ValueError(f"unsupported video modality {video_modality!r}")
         codec = self._resolve_action_codec(dataset_name)
         norm = None if codec is not None else self._resolve_normalizer(dataset_name)
         metadata = self._resolve_metadata(dataset_name)
@@ -259,11 +255,8 @@ class MachEmbodiedUnifiedPolicy:
             instruction,
             max_text_len=self.max_text_len,
             metadata=metadata,
-            video_modality=video_modality,
         ).to(self.device)
-        model_instruction = render_instruction(
-            instruction, metadata, video_modality=video_modality
-        )
+        model_instruction = render_instruction(instruction, metadata)
 
         with torch.autocast("cuda", dtype=torch.bfloat16, enabled=self.device.startswith("cuda")):
             key = (str(dataset_name), str(instruction))
