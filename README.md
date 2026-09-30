@@ -41,7 +41,7 @@ The understanding expert predicts subtasks and affordances, while the generation
 ## Model Checkpoints
 
 - [ME-U0 Pretrained](https://huggingface.co/LiAuto-Foundation-Model/ME-U0-Pretrained): initialization weights for post-training.
-- [ME-U0 RoboDojo](https://huggingface.co/LiAuto-Foundation-Model/ME-U0-RoboDojo): post-trained policy, evaluation assets, and XPolicyLab adapter.
+- [ME-U0 RoboDojo](https://huggingface.co/LiAuto-Foundation-Model/ME-U0-RoboDojo): post-trained policy and evaluation assets.
 
 ```bash
 hf download LiAuto-Foundation-Model/ME-U0-Pretrained --local-dir /path/to/ME-U0-Pretrained
